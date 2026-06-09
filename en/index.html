@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XMP Inverter — Lightroom Preset Converter for Negative Film</title>
+<meta name="description" content="Invert your Lightroom preset (.xmp) for negative film scanning. Drag &amp; drop, instant conversion, no upload needed.">
+
+<!-- AdSense: 審査通過後にコメントを外す
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+-->
+
+
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #f7f8f9;
+  --surface:  #ffffff;
+  --border:   #e4e7eb;
+  --text:     #1a1d23;
+  --muted:    #7a828f;
+  --ink:      #3d4451;
+  --accent:   #2563eb;
+  --accent-l: #eff4ff;
+  --ok:       #059669;
+  --ok-l:     #ecfdf5;
+  --err:      #dc2626;
+  --err-l:    #fef2f2;
+  --radius:   8px;
+  --sans:     'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --mono:     'Helvetica Neue', Menlo, Consolas, monospace;
+}
+
+html { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+body { min-height: 100vh; display: flex; flex-direction: column; }
+a { color: var(--accent); text-decoration: none; }
+
+/* ── header ── */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 10;
+}
+.logo { font-size: 14px; font-weight: 500; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; color: var(--text); }
+.logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+nav { display: flex; gap: 1.5rem; align-items: center; }
+nav a { font-size: 13px; color: var(--muted); }
+nav a:hover { color: var(--text); text-decoration: none; }
+.lang-switch {
+  font-size: 12px; font-weight: 500; padding: 4px 10px;
+  border: 1px solid var(--border); border-radius: 5px;
+  color: var(--muted); background: var(--surface);
+  text-decoration: none; transition: border-color 0.1s, color 0.1s;
+}
+.lang-switch:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.ofuse-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--sans); font-size: 13px; font-weight: 500;
+  padding: 8px 16px; border-radius: var(--radius);
+  background: #fff7ed; border: 1px solid #fed7aa; color: #c2410c;
+  cursor: pointer; text-decoration: none;
+  transition: background 0.1s, border-color 0.1s;
+}
+.ofuse-btn:hover { background: #ffedd5; border-color: #fdba74; text-decoration: none; }
+
+/* ── ad slots ── */
+.ad-leaderboard {
+  background: var(--surface); border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  height: 90px; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase;
+  margin-bottom: 2.5rem;
+}
+.ad-rect {
+  background: var(--surface); border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  height: 250px; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase;
+  margin: 2rem 0;
+}
+
+/* ── layout ── */
+main { flex: 1; max-width: 720px; margin: 0 auto; padding: 3rem 1.5rem 4rem; width: 100%; }
+
+/* ── hero ── */
+.hero { margin-bottom: 2.5rem; }
+.hero h1 { font-size: clamp(22px, 4vw, 30px); font-weight: 500; letter-spacing: -0.025em; line-height: 1.25; margin-bottom: 8px; }
+.hero p { font-size: 14px; color: var(--muted); max-width: 420px; }
+
+/* ── drop zone ── */
+#drop-zone {
+  background: var(--surface);
+  border: 1.5px dashed var(--border);
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  margin-bottom: 1rem;
+  user-select: none;
+}
+#drop-zone:hover { border-color: var(--accent); background: var(--accent-l); }
+#drop-zone.over  { border-color: var(--accent); background: var(--accent-l); }
+.drop-icon { font-size: 28px; margin-bottom: 10px; color: var(--muted); line-height: 1; }
+#drop-zone h2 { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+#drop-zone p { font-size: 13px; color: var(--muted); }
+#drop-zone p b { color: var(--accent); font-weight: 500; }
+#file-input { display: none; }
+
+/* ── sliders panel ── */
+.sliders-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+  display: none;
+}
+.sliders-panel h3 {
+  font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 1rem;
+}
+.slider-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 38px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.slider-row:last-child { margin-bottom: 0; }
+.slider-label { font-size: 13px; color: var(--ink); }
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px;
+  background: var(--border); border-radius: 2px; outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: pointer;
+}
+input[type=range]:focus::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--accent); }
+.slider-val {
+  font-size: 12px; font-family: var(--mono);
+  color: var(--muted); text-align: right;
+}
+.slider-divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+/* ── file list ── */
+#file-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 1rem; }
+.file-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+.file-item.done  { border-color: #bbf7d0; }
+.file-item.error { border-color: #fecaca; }
+.fi-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.fi-status { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+.file-item.done  .fi-status { color: var(--ok); }
+.file-item.error .fi-status { color: var(--err); }
+.fi-icon { font-size: 14px; flex-shrink: 0; color: var(--muted); }
+.file-item.done  .fi-icon { color: var(--ok); }
+.file-item.error .fi-icon { color: var(--err); }
+
+/* ── buttons ── */
+#actions { display: none; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem; }
+.btn {
+  font-family: var(--sans); font-size: 13px; font-weight: 500;
+  padding: 7px 14px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  transition: background 0.1s, border-color 0.1s, transform 0.08s;
+}
+.btn:hover  { background: var(--bg); }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+.btn-icon { font-size: 14px; }
+
+/* ── small DL button in file row ── */
+.btn-dl {
+  font-family: var(--sans); font-size: 11px; padding: 3px 9px;
+  border: 1px solid var(--border); border-radius: 5px;
+  background: var(--surface); color: var(--text); cursor: pointer;
+  flex-shrink: 0; transition: background 0.1s;
+}
+.btn-dl:hover { background: var(--bg); }
+.btn-rm {
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 14px; padding: 2px; flex-shrink: 0; line-height: 1;
+}
+.btn-rm:hover { color: var(--err); }
+
+/* ── log ── */
+#log-area {
+  display: none;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px; font-family: var(--mono); font-size: 11.5px;
+  color: var(--muted); max-height: 160px; overflow-y: auto;
+  margin-bottom: 2rem;
+}
+.log-ok { color: var(--ok); }
+.log-er { color: var(--err); }
+.log-in { color: var(--accent); }
+
+/* ── info sections ── */
+.section-head {
+  font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 1rem;
+}
+.steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 2.5rem; }
+.step {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px;
+}
+.step-n { font-size: 11px; font-family: var(--mono); color: var(--muted); margin-bottom: 6px; }
+.step h3 { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+.step p  { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+.params-wrap { margin-bottom: 2.5rem; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th { text-align: left; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); padding: 7px 10px; border-bottom: 1px solid var(--border); font-weight: 500; }
+td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--ink); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+code { font-family: var(--mono); font-size: 11px; color: var(--accent); background: var(--accent-l); padding: 1px 5px; border-radius: 3px; }
+.tag { display: inline-block; font-size: 10.5px; padding: 2px 6px; border-radius: 3px; font-weight: 500; }
+.tag-swap   { background: #eff6ff; color: #2563eb; }
+.tag-inv    { background: #f0fdf4; color: #059669; }
+.tag-curve  { background: #fefce8; color: #ca8a04; }
+
+.privacy-note {
+  background: var(--ok-l); border: 1px solid #bbf7d0;
+  border-radius: var(--radius); padding: 10px 14px;
+  font-size: 13px; color: #065f46; margin-bottom: 2rem;
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.privacy-note span { font-size: 15px; flex-shrink: 0; }
+
+/* ── footer ── */
+footer {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 1.25rem 2rem;
+  font-size: 12px; color: var(--muted);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+}
+footer a { color: var(--muted); }
+footer a:hover { color: var(--text); text-decoration: none; }
+
+@media (max-width: 600px) {
+  main { padding: 2rem 1rem 3rem; }
+  header { padding: 0 1rem; }
+  nav { display: none; }
+  .slider-row { grid-template-columns: 100px 1fr 34px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    XMP Inverter
+  </div>
+  <nav>
+    <a href="#how">How it works</a>
+    <a href="#params">Parameters</a>
+    <a href="../index.html" class="lang-switch">JA</a>
+  </nav>
+</header>
+
+<main>
+
+  <div class="hero">
+    <h1>Invert your Lightroom preset<br>for negative film.</h1>
+    <p>Drop your Lightroom preset (.xmp) and get a negative-film-ready version in seconds.</p>
+  </div>
+
+  <!-- Ad: leaderboard -->
+  <div class="ad-leaderboard">Ad space (728×90)</div>
+
+  <div id="drop-zone">
+    <div class="drop-icon">&#x2191;</div>
+    <h2>Drop your XMP file here</h2>
+    <p><b>Click to select files</b> or drop multiple at once</p>
+    <p style="margin-top:4px; font-size:12px; color:var(--muted);">.xmp files only</p>
+  </div>
+  <input type="file" id="file-input" accept=".xmp" multiple>
+
+  <!-- Sliders -->
+  <div class="sliders-panel" id="sliders-panel">
+    <h3>Inversion strength</h3>
+
+    <div class="slider-row">
+      <span class="slider-label">Exposure / Contrast</span>
+      <input type="range" id="sl-tone" min="0" max="100" step="1" value="100">
+      <span class="slider-val" id="sv-tone">100%</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">Highlights / Shadows</span>
+      <input type="range" id="sl-hl" min="0" max="100" step="1" value="100">
+      <span class="slider-val" id="sv-hl">100%</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">HSL</span>
+      <input type="range" id="sl-hsl" min="0" max="100" step="1" value="100">
+      <span class="slider-val" id="sv-hsl">100%</span>
+    </div>
+
+    <div class="slider-divider"></div>
+
+    <div class="slider-row">
+      <span class="slider-label">Tone curve</span>
+      <input type="range" id="sl-curve" min="0" max="100" step="1" value="100">
+      <span class="slider-val" id="sv-curve">100%</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">Saturation / Vibrance</span>
+      <input type="range" id="sl-sat" min="0" max="100" step="1" value="100">
+      <span class="slider-val" id="sv-sat">100%</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">Vignette</span>
+      <input type="range" id="sl-vig" min="0" max="100" step="1" value="100">
+      <span class="slider-val" id="sv-vig">100%</span>
+    </div>
+  </div>
+
+  <div id="file-list"></div>
+
+  <div id="actions">
+    <button class="btn btn-primary" id="convert-all-btn"><span class="btn-icon">&#x21BA;</span> Convert all</button>
+    <button class="btn" id="dl-all-btn"><span class="btn-icon">&#x2193;</span> Download all</button>
+    <button class="btn" id="clear-btn"><span class="btn-icon">&#x2715;</span> Clear</button>
+  </div>
+
+  <div id="log-area"></div>
+
+  <div class="privacy-note" id="privacy">
+    <span>&#x1F512;</span>
+    All processing happens in your browser. Nothing is sent to any server.
+  </div>
+
+  <div class="ad-rect">Ad space (300×250)</div>
+
+  <!-- How it works -->
+  <div id="how" style="margin-bottom:2.5rem;">
+    <p class="section-head">How it works</p>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-n">01</div>
+        <h3>Drop your XMP</h3>
+        <p>Drag your Lightroom preset file here, or click to select multiple files at once.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">02</div>
+        <h3>Adjust strength (optional)</h3>
+        <p>Use sliders to fine-tune inversion intensity per parameter group. Default is full inversion.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">03</div>
+        <h3>Convert &amp; download</h3>
+        <p>Import the <code>_inverted.xmp</code> file into Lightroom as a new preset.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Params -->
+  <div class="params-wrap" id="params">
+    <p class="section-head">Converted parameters</p>
+    <table>
+      <thead><tr><th>Category</th><th>Parameters</th><th>Operation</th></tr></thead>
+      <tbody>
+        <tr><td>Exposure / Contrast</td><td><code>Exposure</code> <code>Contrast</code> <code>Clarity</code> <code>Dehaze</code></td><td><span class="tag tag-inv">invert</span></td></tr>
+        <tr><td>Highlights / Shadows</td><td><code>Highlights</code> ↔ <code>Shadows</code></td><td><span class="tag tag-swap">swap+invert</span></td></tr>
+        <tr><td>Whites / Blacks</td><td><code>Whites</code> ↔ <code>Blacks</code></td><td><span class="tag tag-swap">swap+invert</span></td></tr>
+        <tr><td>Tone curve</td><td>RGB・各チャンネル</td><td><span class="tag tag-curve">Y-invert</span></td></tr>
+        <tr><td>HSL all colors</td><td>色相・彩度・輝度</td><td><span class="tag tag-inv">invert</span></td></tr>
+        <tr><td>Saturation / Vibrance</td><td><code>Vibrance</code> <code>Saturation</code></td><td><span class="tag tag-inv">invert</span></td></tr>
+        <tr><td>Color grade</td><td>Hue (180°回転) · Sat · Lum</td><td><span class="tag tag-inv">invert</span></td></tr>
+        <tr><td>Split toning</td><td>Shadow ↔ Highlight</td><td><span class="tag tag-swap">swap</span></td></tr>
+        <tr><td>Vignette</td><td><code>VignetteAmount</code></td><td><span class="tag tag-inv">invert</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<div style="text-align:center; padding: 2rem 0 0;">
+  <a href="https://buymeacoffee.com/photoapp" target="_blank" rel="noopener" class="ofuse-btn">
+    ☕ Buy me a coffee if this helped
+  </a>
+  <p style="font-size:12px; color:var(--muted); margin-top:8px;">Support via Buy Me a Coffee</p>
+</div>
+
+<footer>
+  <span>© 2024 XMP Inverter</span>
+  <div style="display:flex;gap:1.5rem;">
+    <a href="../privacy.html">Privacy policy</a>
+    <a href="https://github.com/Fibonacci1039/negaposi" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</footer>
+
+<script>
+// ── slider wiring ──
+const sliders = [
+  { id:'sl-tone',  out:'sv-tone'  },
+  { id:'sl-hl',    out:'sv-hl'   },
+  { id:'sl-hsl',   out:'sv-hsl'  },
+  { id:'sl-curve', out:'sv-curve' },
+  { id:'sl-sat',   out:'sv-sat'  },
+  { id:'sl-vig',   out:'sv-vig'  },
+];
+sliders.forEach(({id, out}) => {
+  const el = document.getElementById(id);
+  const ov = document.getElementById(out);
+  el.addEventListener('input', () => { ov.textContent = el.value + '%'; });
+});
+function getStrength(id) { return parseInt(document.getElementById(id).value) / 100; }
+
+// ── drag & drop ──
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const fileListEl= document.getElementById('file-list');
+const actionsEl = document.getElementById('actions');
+const logArea   = document.getElementById('log-area');
+const slidersPanel = document.getElementById('sliders-panel');
+
+let files = [];
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('over');
+  addFiles([...e.dataTransfer.files].filter(f => f.name.toLowerCase().endsWith('.xmp')));
+});
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => addFiles([...fileInput.files]));
+
+function addFiles(list) {
+  list.forEach(f => {
+    if (!files.find(x => x.file.name === f.name && x.file.size === f.size))
+      files.push({ file: f, converted: null, status: 'pending' });
+  });
+  renderList();
+}
+
+function log(msg, type='') {
+  logArea.style.display = 'block';
+  const d = document.createElement('div');
+  d.className = type ? 'log-'+type : '';
+  d.textContent = msg;
+  logArea.appendChild(d);
+  logArea.scrollTop = logArea.scrollHeight;
+}
+
+function renderList() {
+  fileListEl.innerHTML = '';
+  const show = files.length > 0;
+  actionsEl.style.display = show ? 'flex' : 'none';
+  slidersPanel.style.display = show ? 'block' : 'none';
+  files.forEach((entry, i) => {
+    const div = document.createElement('div');
+    div.className = 'file-item' + (entry.status === 'done' ? ' done' : entry.status === 'error' ? ' error' : '');
+    const icon = entry.status === 'done' ? '✓' : entry.status === 'error' ? '✕' : '○';
+    const statusText = entry.status === 'done' ? 'Done' : entry.status === 'error' ? 'Error' : 'Waiting';
+    div.innerHTML = `
+      <span class="fi-icon">${icon}</span>
+      <span class="fi-name" title="${entry.file.name}">${entry.file.name}</span>
+      <span class="fi-status">${statusText}</span>
+      ${entry.converted ? `<button class="btn-dl" onclick="downloadOne(${i})">↓ DL</button>` : ''}
+      <button class="btn-rm" onclick="removeFile(${i})" aria-label="削除">✕</button>
+    `;
+    fileListEl.appendChild(div);
+  });
+}
+
+function removeFile(i) { files.splice(i,1); renderList(); }
+
+document.getElementById('convert-all-btn').addEventListener('click', async () => {
+  for (let i = 0; i < files.length; i++)
+    if (files[i].status !== 'done') await convertFile(i);
+});
+document.getElementById('dl-all-btn').addEventListener('click', () => {
+  files.forEach((_, i) => { if (files[i].converted) downloadOne(i); });
+});
+document.getElementById('clear-btn').addEventListener('click', () => {
+  files = []; renderList(); logArea.style.display = 'none'; logArea.innerHTML = '';
+});
+
+async function convertFile(i) {
+  const entry = files[i];
+  const text = await entry.file.text();
+  const strengths = {
+    tone:  getStrength('sl-tone'),
+    hl:    getStrength('sl-hl'),
+    hsl:   getStrength('sl-hsl'),
+    curve: getStrength('sl-curve'),
+    sat:   getStrength('sl-sat'),
+    vig:   getStrength('sl-vig'),
+  };
+  try {
+    const [result, changes] = invertXMP(text, strengths);
+    entry.converted = result; entry.status = 'done';
+    log(`✓ ${entry.file.name} — ${changes.length} changes`, 'ok');
+    changes.forEach(c => log('  ' + c));
+  } catch(e) {
+    entry.status = 'error';
+    log(`✕ ${entry.file.name}: ${e.message}`, 'er');
+  }
+  renderList();
+}
+
+function downloadOne(i) {
+  const entry = files[i];
+  const stem = entry.file.name.replace(/\.xmp$/i, '');
+  const blob = new Blob([entry.converted], { type: 'application/xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = stem + '_inverted.xmp';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ── XMP Inversion Engine ──
+function fmt(v) { return v === Math.round(v) ? String(Math.round(v)) : v.toFixed(2); }
+
+function lerp(original, inverted, t) {
+  // t=1 → fully inverted, t=0 → original unchanged
+  return original + (inverted - original) * t;
+}
+
+function invertCurvePoints(arr, t) {
+  const pts = arr.map(s => { const p = s.trim().split(','); return [parseFloat(p[0]), parseFloat(p[1])]; });
+  return pts
+    .map(([x, y]) => [x, lerp(y, 255 - y, t)])
+    .sort((a, b) => a[0] - b[0])
+    .map(([x, y]) => `${fmt(x)}, ${fmt(y)}`);
+}
+
+function getA(c, n) { const m = c.match(new RegExp('(?:crs:)?' + n + '\\s*=\\s*"([^"]*)"')); return m ? m[1] : null; }
+function setA(c, n, v) { return c.replace(new RegExp('((?:crs:)?' + n + '\\s*=\\s*)"[^"]*"'), `$1"${v}"`); }
+function getC(c, n) {
+  const m = c.match(new RegExp('<(?:crs:)?' + n + '>(.*?)</(?:crs:)?' + n + '>', 's'));
+  if (!m) return null;
+  return [...m[1].matchAll(/<rdf:li>([^<]+)<\/rdf:li>/g)].map(x => x[1]);
+}
+function setC(c, n, pts) {
+  const re = new RegExp('(<(?:crs:)?' + n + '>.*?<rdf:Seq>)(.*?)(</rdf:Seq>.*?</(?:crs:)?' + n + '>)', 's');
+  const blk = '\n     ' + pts.map(p => `<rdf:li>${p}</rdf:li>`).join('\n     ') + '\n    ';
+  return c.replace(re, `$1${blk}$3`);
+}
+
+function applySimple(r, name, fn, t, changes) {
+  const v = getA(r, name); if (v === null) return r;
+  const o = parseFloat(v); if (isNaN(o)) return r;
+  const inv = fn(o);
+  const n = lerp(o, inv, t);
+  r = setA(r, name, fmt(n));
+  if (Math.abs(o - n) > 0.005) changes.push(`${name}: ${fmt(o)} → ${fmt(n)}`);
+  return r;
+}
+
+function invertXMP(content, s) {
+  let r = content;
+  const changes = [];
+
+  // tone group
+  const toneNames = ['Exposure2012','Contrast2012','Clarity2012','Dehaze'];
+  toneNames.forEach(n => { r = applySimple(r, n, v => -v, s.tone, changes); });
+
+  // hl/sh swap + invert
+  const swapPairs = [['Highlights2012','Shadows2012'],['Whites2012','Blacks2012']];
+  swapPairs.forEach(([a, b]) => {
+    const va = getA(r, a), vb = getA(r, b);
+    if (va !== null && vb !== null) {
+      const fa = parseFloat(va), fb = parseFloat(vb);
+      if (!isNaN(fa) && !isNaN(fb)) {
+        const na = lerp(fa, -fb, s.hl), nb = lerp(fb, -fa, s.hl);
+        r = setA(r, a, fmt(na)); r = setA(r, b, fmt(nb));
+        if (Math.abs(fa-na)>0.005 || Math.abs(fb-nb)>0.005)
+          changes.push(`${a}↔${b}: (${fmt(fa)},${fmt(fb)})→(${fmt(na)},${fmt(nb)})`);
+      }
+    }
+  });
+
+  // HSL
+  const hslNames = [
+    'HueAdjustmentRed','HueAdjustmentOrange','HueAdjustmentYellow','HueAdjustmentGreen',
+    'HueAdjustmentAqua','HueAdjustmentBlue','HueAdjustmentPurple','HueAdjustmentMagenta',
+    'SaturationAdjustmentRed','SaturationAdjustmentOrange','SaturationAdjustmentYellow',
+    'SaturationAdjustmentGreen','SaturationAdjustmentAqua','SaturationAdjustmentBlue',
+    'SaturationAdjustmentPurple','SaturationAdjustmentMagenta',
+    'LuminanceAdjustmentRed','LuminanceAdjustmentOrange','LuminanceAdjustmentYellow',
+    'LuminanceAdjustmentGreen','LuminanceAdjustmentAqua','LuminanceAdjustmentBlue',
+    'LuminanceAdjustmentPurple','LuminanceAdjustmentMagenta',
+  ];
+  hslNames.forEach(n => { r = applySimple(r, n, v => -v, s.hsl, changes); });
+
+  // saturation / vibrance
+  r = applySimple(r, 'Vibrance', v => -v, s.sat, changes);
+  r = applySimple(r, 'Saturation', v => -v, s.sat, changes);
+
+  // color grade
+  r = applySimple(r, 'ColorGradeMidtoneSat', v => -v, s.sat, changes);
+  r = applySimple(r, 'ColorGradeGlobalSat', v => -v, s.sat, changes);
+  r = applySimple(r, 'ColorGradeShadowLum', v => -v, s.tone, changes);
+  r = applySimple(r, 'ColorGradeMidtoneLum', v => -v, s.tone, changes);
+  r = applySimple(r, 'ColorGradeHighlightLum', v => -v, s.tone, changes);
+  r = applySimple(r, 'ColorGradeGlobalLum', v => -v, s.tone, changes);
+  ['ColorGradeMidtoneHue','ColorGradeGlobalHue'].forEach(n => {
+    r = applySimple(r, n, v => (v + 180) % 360, s.hsl, changes);
+  });
+
+  // split toning swap
+  [['SplitToningShadowHue','SplitToningHighlightHue'],
+   ['SplitToningShadowSaturation','SplitToningHighlightSaturation'],
+   ['ColorGradeShadowLum','ColorGradeHighlightLum']].forEach(([a, b]) => {
+    const va = getA(r, a), vb = getA(r, b);
+    if (va !== null && vb !== null && va !== vb) {
+      const na = va + (vb - va) * s.hl;
+      const nb = vb + (va - vb) * s.hl;
+      r = setA(r, a, fmt(parseFloat(na)));
+      r = setA(r, b, fmt(parseFloat(nb)));
+      changes.push(`${a}↔${b}`);
+    }
+  });
+
+  // vignette
+  r = applySimple(r, 'VignetteAmount', v => -v, s.vig, changes);
+
+  // tone curves
+  const curveNames = ['ToneCurve2012','ToneCurveRed','ToneCurveGreen','ToneCurveBlue'];
+  curveNames.forEach(n => {
+    const pts = getC(r, n);
+    if (pts && pts.length) {
+      const inv = invertCurvePoints(pts, s.curve);
+      r = setC(r, n, inv);
+      changes.push(`${n}: ${pts.length} points (strength ${Math.round(s.curve*100)}%)`);
+    }
+  });
+
+  r = setA(r, 'ToneCurveName2012', 'Custom');
+  return [r, changes];
+}
+</script>
+</body>
+</html>
