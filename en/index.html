@@ -323,11 +323,6 @@ footer a:hover { color: var(--text); text-decoration: none; }
     <div class="slider-divider"></div>
 
     <div class="slider-row">
-      <span class="slider-label">Tone curve</span>
-      <input type="range" id="sl-curve" min="0" max="100" step="1" value="100">
-      <span class="slider-val" id="sv-curve">100%</span>
-    </div>
-    <div class="slider-row">
       <span class="slider-label">Saturation / Vibrance</span>
       <input type="range" id="sl-sat" min="0" max="100" step="1" value="100">
       <span class="slider-val" id="sv-sat">100%</span>
@@ -363,17 +358,17 @@ footer a:hover { color: var(--text); text-decoration: none; }
       <div class="step">
         <div class="step-n">01</div>
         <h3>Drop your XMP</h3>
-        <p>Drag your Lightroom preset file here, or click to select multiple files at once.</p>
+        <p>Drag your Lightroom preset here, or click to select multiple files.</p>
       </div>
       <div class="step">
         <div class="step-n">02</div>
         <h3>Adjust strength (optional)</h3>
-        <p>Use sliders to fine-tune inversion intensity per parameter group. Default is full inversion.</p>
+        <p>Use sliders to fine-tune inversion intensity. Default is full inversion.</p>
       </div>
       <div class="step">
         <div class="step-n">03</div>
         <h3>Convert &amp; download</h3>
-        <p>Import the <code>_inverted.xmp</code> file into Lightroom as a new preset.</p>
+        <p>Import the <code>_inverted.xmp</code> file into Lightroom as a preset.</p>
       </div>
     </div>
   </div>
@@ -384,13 +379,13 @@ footer a:hover { color: var(--text); text-decoration: none; }
     <table>
       <thead><tr><th>Category</th><th>Parameters</th><th>Operation</th></tr></thead>
       <tbody>
-        <tr><td>Exposure / Contrast</td><td><code>Exposure</code> <code>Contrast</code> <code>Clarity</code> <code>Dehaze</code></td><td><span class="tag tag-inv">invert</span></td></tr>
+        <tr><td>Exposure / Contrast</td><td><code>Exposure</code> <code>Contrast</code> <code>Dehaze</code></td><td><span class="tag tag-inv">invert</span></td></tr>
         <tr><td>Highlights / Shadows</td><td><code>Highlights</code> ↔ <code>Shadows</code></td><td><span class="tag tag-swap">swap+invert</span></td></tr>
         <tr><td>Whites / Blacks</td><td><code>Whites</code> ↔ <code>Blacks</code></td><td><span class="tag tag-swap">swap+invert</span></td></tr>
-        <tr><td>Tone curve</td><td>RGB・各チャンネル</td><td><span class="tag tag-curve">Y-invert</span></td></tr>
-        <tr><td>HSL all colors</td><td>色相・彩度・輝度</td><td><span class="tag tag-inv">invert</span></td></tr>
+        <tr><td>Tone curve</td><td>RGB・各チャンネル + ParametricCurve</td><td><span class="tag tag-curve">forced invert</span></td></tr>
+        <tr><td>Color mixer HSL</td><td>Hue / Sat / Lum (mapped to complementary channel)</td><td><span class="tag tag-swap">comp. mapping</span></td></tr>
         <tr><td>Saturation / Vibrance</td><td><code>Vibrance</code> <code>Saturation</code></td><td><span class="tag tag-inv">invert</span></td></tr>
-        <tr><td>Color grade</td><td>Hue (180°回転) · Sat · Lum</td><td><span class="tag tag-inv">invert</span></td></tr>
+        <tr><td>Color grade</td><td>Hue 180° rotation · Sat unchanged · Lum Shadow↔Highlight swap</td><td><span class="tag tag-swap">comp.+swap</span></td></tr>
         <tr><td>Split toning</td><td>Shadow ↔ Highlight</td><td><span class="tag tag-swap">swap</span></td></tr>
         <tr><td>Vignette</td><td><code>VignetteAmount</code></td><td><span class="tag tag-inv">invert</span></td></tr>
       </tbody>
@@ -415,14 +410,13 @@ footer a:hover { color: var(--text); text-decoration: none; }
 </footer>
 
 <script>
-// ── slider wiring ──
+// ── slider wiring (curve slider removed — always 100%) ──
 const sliders = [
-  { id:'sl-tone',  out:'sv-tone'  },
-  { id:'sl-hl',    out:'sv-hl'   },
-  { id:'sl-hsl',   out:'sv-hsl'  },
-  { id:'sl-curve', out:'sv-curve' },
-  { id:'sl-sat',   out:'sv-sat'  },
-  { id:'sl-vig',   out:'sv-vig'  },
+  { id:'sl-tone', out:'sv-tone' },
+  { id:'sl-hl',   out:'sv-hl'  },
+  { id:'sl-hsl',  out:'sv-hsl' },
+  { id:'sl-sat',  out:'sv-sat' },
+  { id:'sl-vig',  out:'sv-vig' },
 ];
 sliders.forEach(({id, out}) => {
   const el = document.getElementById(id);
@@ -432,11 +426,11 @@ sliders.forEach(({id, out}) => {
 function getStrength(id) { return parseInt(document.getElementById(id).value) / 100; }
 
 // ── drag & drop ──
-const dropZone  = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-const fileListEl= document.getElementById('file-list');
-const actionsEl = document.getElementById('actions');
-const logArea   = document.getElementById('log-area');
+const dropZone   = document.getElementById('drop-zone');
+const fileInput  = document.getElementById('file-input');
+const fileListEl = document.getElementById('file-list');
+const actionsEl  = document.getElementById('actions');
+const logArea    = document.getElementById('log-area');
 const slidersPanel = document.getElementById('sliders-panel');
 
 let files = [];
@@ -488,7 +482,7 @@ function renderList() {
   });
 }
 
-function removeFile(i) { files.splice(i,1); renderList(); }
+function removeFile(i) { files.splice(i, 1); renderList(); }
 
 document.getElementById('convert-all-btn').addEventListener('click', async () => {
   for (let i = 0; i < files.length; i++)
@@ -505,12 +499,11 @@ async function convertFile(i) {
   const entry = files[i];
   const text = await entry.file.text();
   const strengths = {
-    tone:  getStrength('sl-tone'),
-    hl:    getStrength('sl-hl'),
-    hsl:   getStrength('sl-hsl'),
-    curve: getStrength('sl-curve'),
-    sat:   getStrength('sl-sat'),
-    vig:   getStrength('sl-vig'),
+    tone: getStrength('sl-tone'),
+    hl:   getStrength('sl-hl'),
+    hsl:  getStrength('sl-hsl'),
+    sat:  getStrength('sl-sat'),
+    vig:  getStrength('sl-vig'),
   };
   try {
     const [result, changes] = invertXMP(text, strengths);
@@ -533,24 +526,21 @@ function downloadOne(i) {
   a.click(); URL.revokeObjectURL(url);
 }
 
-// ── XMP Inversion Engine ──
+// ════════════════════════════════════════════════════════════
+// XMP Inversion Engine v2
+// ════════════════════════════════════════════════════════════
+
 function fmt(v) { return v === Math.round(v) ? String(Math.round(v)) : v.toFixed(2); }
+function lerp(o, inv, t) { return o + (inv - o) * t; }
 
-function lerp(original, inverted, t) {
-  // t=1 → fully inverted, t=0 → original unchanged
-  return original + (inverted - original) * t;
+// ── XML helpers ──
+function getA(c, n) {
+  const m = c.match(new RegExp('(?:crs:)?' + n + '\s*=\s*"([^"]*)"'));
+  return m ? m[1] : null;
 }
-
-function invertCurvePoints(arr, t) {
-  const pts = arr.map(s => { const p = s.trim().split(','); return [parseFloat(p[0]), parseFloat(p[1])]; });
-  return pts
-    .map(([x, y]) => [x, lerp(y, 255 - y, t)])
-    .sort((a, b) => a[0] - b[0])
-    .map(([x, y]) => `${fmt(x)}, ${fmt(y)}`);
+function setA(c, n, v) {
+  return c.replace(new RegExp('((?:crs:)?' + n + '\s*=\s*)"[^"]*"'), `$1"${v}"`);
 }
-
-function getA(c, n) { const m = c.match(new RegExp('(?:crs:)?' + n + '\\s*=\\s*"([^"]*)"')); return m ? m[1] : null; }
-function setA(c, n, v) { return c.replace(new RegExp('((?:crs:)?' + n + '\\s*=\\s*)"[^"]*"'), `$1"${v}"`); }
 function getC(c, n) {
   const m = c.match(new RegExp('<(?:crs:)?' + n + '>(.*?)</(?:crs:)?' + n + '>', 's'));
   if (!m) return null;
@@ -558,17 +548,142 @@ function getC(c, n) {
 }
 function setC(c, n, pts) {
   const re = new RegExp('(<(?:crs:)?' + n + '>.*?<rdf:Seq>)(.*?)(</rdf:Seq>.*?</(?:crs:)?' + n + '>)', 's');
-  const blk = '\n     ' + pts.map(p => `<rdf:li>${p}</rdf:li>`).join('\n     ') + '\n    ';
+  const blk = '
+     ' + pts.map(p => `<rdf:li>${p}</rdf:li>`).join('
+     ') + '
+    ';
   return c.replace(re, `$1${blk}$3`);
 }
 
 function applySimple(r, name, fn, t, changes) {
   const v = getA(r, name); if (v === null) return r;
   const o = parseFloat(v); if (isNaN(o)) return r;
-  const inv = fn(o);
-  const n = lerp(o, inv, t);
+  const n = lerp(o, fn(o), t);
   r = setA(r, name, fmt(n));
   if (Math.abs(o - n) > 0.005) changes.push(`${name}: ${fmt(o)} → ${fmt(n)}`);
+  return r;
+}
+
+// ── Tone curve: always 100% inversion ──
+function invertCurvePoints(arr) {
+  const pts = arr.map(s => { const p = s.trim().split(','); return [parseFloat(p[0]), parseFloat(p[1])]; });
+  return pts.map(([x, y]) => [x, 255 - y]).sort((a, b) => a[0] - b[0]).map(([x, y]) => `${fmt(x)}, ${fmt(y)}`);
+}
+
+// ── HSL complementary color mapping ──
+// In a negative, each color becomes its complement.
+// So HSL adjustments should move to the complementary color channel.
+// Complement pairs: Red↔Aqua, Orange↔Blue, Yellow↔Purple, Green↔Magenta
+const HSL_COMPLEMENT = {
+  Red: 'Aqua', Orange: 'Blue', Yellow: 'Purple',
+  Green: 'Magenta', Aqua: 'Red', Blue: 'Orange',
+  Purple: 'Yellow', Magenta: 'Green'
+};
+const HSL_COLORS = ['Red','Orange','Yellow','Green','Aqua','Blue','Purple','Magenta'];
+const HSL_TYPES  = ['HueAdjustment','SaturationAdjustment','LuminanceAdjustment'];
+
+function applyHSL(r, t, changes) {
+  // Read all current values first
+  const vals = {};
+  HSL_TYPES.forEach(type => {
+    HSL_COLORS.forEach(color => {
+      const v = getA(r, type + color);
+      vals[type + color] = v !== null ? parseFloat(v) : null;
+    });
+  });
+
+  // Write complementary-mapped values
+  HSL_TYPES.forEach(type => {
+    HSL_COLORS.forEach(color => {
+      const srcKey = type + color;
+      const dstKey = type + HSL_COMPLEMENT[color];
+      const srcVal = vals[srcKey];
+      const dstVal = vals[dstKey];
+      if (srcVal === null || dstVal === null) return;
+      // lerp: at t=0 keep original, at t=1 fully remap to complement
+      const newVal = lerp(dstVal, srcVal, t);
+      r = setA(r, dstKey, fmt(newVal));
+    });
+  });
+
+  // Log summary
+  const changed = HSL_TYPES.flatMap(type =>
+    HSL_COLORS.filter(color => {
+      const src = vals[type + color];
+      const dst = vals[type + HSL_COMPLEMENT[color]];
+      return src !== null && dst !== null && Math.abs(src - dst) > 0.005;
+    })
+  );
+  if (changed.length > 0) changes.push(`HSL complementary mapping: ${changed.length} channels`);
+  return r;
+}
+
+// ── Color Grade ──
+// Hue: rotate 180° (complementary)
+// Saturation: keep as-is (strength of color grading doesn't change in negative)
+// Luminance: Shadow ↔ Highlight swap + invert
+function applyColorGrade(r, t, changes) {
+  // Hue: 180° rotation on midtone and global
+  ['ColorGradeMidtoneHue','ColorGradeGlobalHue',
+   'ColorGradeShadowHue','ColorGradeHighlightHue'].forEach(n => {
+    const v = getA(r, n); if (v === null) return;
+    const o = parseFloat(v); if (isNaN(o)) return;
+    const inv = (o + 180) % 360;
+    const nv = lerp(o, inv, t);
+    r = setA(r, n, fmt(nv));
+    if (Math.abs(o - nv) > 0.005) changes.push(`${n}: ${fmt(o)} → ${fmt(nv)}`);
+  });
+
+  // Saturation: keep as-is (no change)
+
+  // Luminance: Shadow ↔ Highlight swap + invert
+  const shadowLum   = getA(r, 'ColorGradeShadowLum');
+  const highlightLum= getA(r, 'ColorGradeHighlightLum');
+  const midtoneLum  = getA(r, 'ColorGradeMidtoneLum');
+  const globalLum   = getA(r, 'ColorGradeGlobalLum');
+
+  if (shadowLum !== null && highlightLum !== null) {
+    const fs = parseFloat(shadowLum), fh = parseFloat(highlightLum);
+    // swap + invert: new shadow = -highlight, new highlight = -shadow
+    const ns = lerp(fs, -fh, t), nh = lerp(fh, -fs, t);
+    r = setA(r, 'ColorGradeShadowLum', fmt(ns));
+    r = setA(r, 'ColorGradeHighlightLum', fmt(nh));
+    if (Math.abs(fs-ns)>0.005||Math.abs(fh-nh)>0.005)
+      changes.push(`ColorGradeLum Shadow↔Highlight: (${fmt(fs)},${fmt(fh)})→(${fmt(ns)},${fmt(nh)})`);
+  }
+  if (midtoneLum !== null) {
+    const o = parseFloat(midtoneLum);
+    const nv = lerp(o, -o, t);
+    r = setA(r, 'ColorGradeMidtoneLum', fmt(nv));
+    if (Math.abs(o-nv)>0.005) changes.push(`ColorGradeMidtoneLum: ${fmt(o)} → ${fmt(nv)}`);
+  }
+  if (globalLum !== null) {
+    const o = parseFloat(globalLum);
+    const nv = lerp(o, -o, t);
+    r = setA(r, 'ColorGradeGlobalLum', fmt(nv));
+    if (Math.abs(o-nv)>0.005) changes.push(`ColorGradeGlobalLum: ${fmt(o)} → ${fmt(nv)}`);
+  }
+
+  return r;
+}
+
+// ── Parametric curve (Highlights↔Shadows入替+反転, Lights↔Darks入替+反転) ──
+function applyParametricCurve(r, changes) {
+  const pairs = [
+    ['ParametricHighlights','ParametricShadows'],
+    ['ParametricLights','ParametricDarks'],
+  ];
+  pairs.forEach(([a, b]) => {
+    const va = getA(r, a), vb = getA(r, b);
+    if (va === null || vb === null) return;
+    const fa = parseFloat(va), fb = parseFloat(vb);
+    if (isNaN(fa) || isNaN(fb)) return;
+    // swap + invert
+    r = setA(r, a, fmt(-fb));
+    r = setA(r, b, fmt(-fa));
+    if (Math.abs(fa+fb)>0.005||Math.abs(fb+fa)>0.005)
+      changes.push(`${a}↔${b}: (${fmt(fa)},${fmt(fb)})→(${fmt(-fb)},${fmt(-fa)})`);
+  });
   return r;
 }
 
@@ -576,82 +691,60 @@ function invertXMP(content, s) {
   let r = content;
   const changes = [];
 
-  // tone group
-  const toneNames = ['Exposure2012','Contrast2012','Clarity2012','Dehaze'];
-  toneNames.forEach(n => { r = applySimple(r, n, v => -v, s.tone, changes); });
-
-  // hl/sh swap + invert
-  const swapPairs = [['Highlights2012','Shadows2012'],['Whites2012','Blacks2012']];
-  swapPairs.forEach(([a, b]) => {
-    const va = getA(r, a), vb = getA(r, b);
-    if (va !== null && vb !== null) {
-      const fa = parseFloat(va), fb = parseFloat(vb);
-      if (!isNaN(fa) && !isNaN(fb)) {
-        const na = lerp(fa, -fb, s.hl), nb = lerp(fb, -fa, s.hl);
-        r = setA(r, a, fmt(na)); r = setA(r, b, fmt(nb));
-        if (Math.abs(fa-na)>0.005 || Math.abs(fb-nb)>0.005)
-          changes.push(`${a}↔${b}: (${fmt(fa)},${fmt(fb)})→(${fmt(na)},${fmt(nb)})`);
-      }
-    }
+  // 1. Tone: Exposure, Contrast, Dehaze (Clarity は反転しない)
+  ['Exposure2012','Contrast2012','Dehaze'].forEach(n => {
+    r = applySimple(r, n, v => -v, s.tone, changes);
   });
 
-  // HSL
-  const hslNames = [
-    'HueAdjustmentRed','HueAdjustmentOrange','HueAdjustmentYellow','HueAdjustmentGreen',
-    'HueAdjustmentAqua','HueAdjustmentBlue','HueAdjustmentPurple','HueAdjustmentMagenta',
-    'SaturationAdjustmentRed','SaturationAdjustmentOrange','SaturationAdjustmentYellow',
-    'SaturationAdjustmentGreen','SaturationAdjustmentAqua','SaturationAdjustmentBlue',
-    'SaturationAdjustmentPurple','SaturationAdjustmentMagenta',
-    'LuminanceAdjustmentRed','LuminanceAdjustmentOrange','LuminanceAdjustmentYellow',
-    'LuminanceAdjustmentGreen','LuminanceAdjustmentAqua','LuminanceAdjustmentBlue',
-    'LuminanceAdjustmentPurple','LuminanceAdjustmentMagenta',
-  ];
-  hslNames.forEach(n => { r = applySimple(r, n, v => -v, s.hsl, changes); });
+  // 2. Highlights ↔ Shadows (swap + invert)
+  [['Highlights2012','Shadows2012'],['Whites2012','Blacks2012']].forEach(([a, b]) => {
+    const va = getA(r, a), vb = getA(r, b);
+    if (va === null || vb === null) return;
+    const fa = parseFloat(va), fb = parseFloat(vb);
+    if (isNaN(fa) || isNaN(fb)) return;
+    const na = lerp(fa, -fb, s.hl), nb = lerp(fb, -fa, s.hl);
+    r = setA(r, a, fmt(na)); r = setA(r, b, fmt(nb));
+    if (Math.abs(fa-na)>0.005||Math.abs(fb-nb)>0.005)
+      changes.push(`${a}↔${b}: (${fmt(fa)},${fmt(fb)})→(${fmt(na)},${fmt(nb)})`);
+  });
 
-  // saturation / vibrance
+  // 3. Tone curves — ALWAYS 100% (no lerp)
+  ['ToneCurve2012','ToneCurveRed','ToneCurveGreen','ToneCurveBlue'].forEach(n => {
+    const pts = getC(r, n);
+    if (pts && pts.length) {
+      r = setC(r, n, invertCurvePoints(pts));
+      changes.push(`${n}: ${pts.length} points (forced)`);
+    }
+  });
+  r = setA(r, 'ToneCurveName2012', 'Custom');
+
+  // 4. Parametric curve (always 100%)
+  r = applyParametricCurve(r, changes);
+
+  // 5. HSL — complementary color mapping
+  r = applyHSL(r, s.hsl, changes);
+
+  // 6. Vibrance / Saturation
   r = applySimple(r, 'Vibrance', v => -v, s.sat, changes);
   r = applySimple(r, 'Saturation', v => -v, s.sat, changes);
 
-  // color grade
-  r = applySimple(r, 'ColorGradeMidtoneSat', v => -v, s.sat, changes);
-  r = applySimple(r, 'ColorGradeGlobalSat', v => -v, s.sat, changes);
-  r = applySimple(r, 'ColorGradeShadowLum', v => -v, s.tone, changes);
-  r = applySimple(r, 'ColorGradeMidtoneLum', v => -v, s.tone, changes);
-  r = applySimple(r, 'ColorGradeHighlightLum', v => -v, s.tone, changes);
-  r = applySimple(r, 'ColorGradeGlobalLum', v => -v, s.tone, changes);
-  ['ColorGradeMidtoneHue','ColorGradeGlobalHue'].forEach(n => {
-    r = applySimple(r, n, v => (v + 180) % 360, s.hsl, changes);
-  });
+  // 7. Color Grade
+  r = applyColorGrade(r, s.tone, changes);
 
-  // split toning swap
+  // 8. Split Toning Shadow ↔ Highlight swap
   [['SplitToningShadowHue','SplitToningHighlightHue'],
-   ['SplitToningShadowSaturation','SplitToningHighlightSaturation'],
-   ['ColorGradeShadowLum','ColorGradeHighlightLum']].forEach(([a, b]) => {
+   ['SplitToningShadowSaturation','SplitToningHighlightSaturation']].forEach(([a, b]) => {
     const va = getA(r, a), vb = getA(r, b);
-    if (va !== null && vb !== null && va !== vb) {
-      const na = va + (vb - va) * s.hl;
-      const nb = vb + (va - vb) * s.hl;
-      r = setA(r, a, fmt(parseFloat(na)));
-      r = setA(r, b, fmt(parseFloat(nb)));
-      changes.push(`${a}↔${b}`);
-    }
+    if (va === null || vb === null) return;
+    const fa = parseFloat(va), fb = parseFloat(vb);
+    const na = lerp(fa, fb, s.hl), nb = lerp(fb, fa, s.hl);
+    r = setA(r, a, fmt(na)); r = setA(r, b, fmt(nb));
+    if (Math.abs(fa-na)>0.005) changes.push(`${a}↔${b}`);
   });
 
-  // vignette
+  // 9. Vignette
   r = applySimple(r, 'VignetteAmount', v => -v, s.vig, changes);
 
-  // tone curves
-  const curveNames = ['ToneCurve2012','ToneCurveRed','ToneCurveGreen','ToneCurveBlue'];
-  curveNames.forEach(n => {
-    const pts = getC(r, n);
-    if (pts && pts.length) {
-      const inv = invertCurvePoints(pts, s.curve);
-      r = setC(r, n, inv);
-      changes.push(`${n}: ${pts.length} points (strength ${Math.round(s.curve*100)}%)`);
-    }
-  });
-
-  r = setA(r, 'ToneCurveName2012', 'Custom');
   return [r, changes];
 }
 </script>
