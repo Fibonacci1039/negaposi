@@ -410,7 +410,7 @@ footer a:hover { color: var(--text); text-decoration: none; }
 </footer>
 
 <script>
-// ── slider wiring (curve slider removed — always 100%) ──
+// ── slider wiring ──
 const sliders = [
   { id:'sl-tone', out:'sv-tone' },
   { id:'sl-hl',   out:'sv-hl'  },
@@ -421,6 +421,7 @@ const sliders = [
 sliders.forEach(({id, out}) => {
   const el = document.getElementById(id);
   const ov = document.getElementById(out);
+  if (!el || !ov) return;
   el.addEventListener('input', () => { ov.textContent = el.value + '%'; });
 });
 function getStrength(id) { return parseInt(document.getElementById(id).value) / 100; }
@@ -452,10 +453,10 @@ function addFiles(list) {
   renderList();
 }
 
-function log(msg, type='') {
+function log(msg, type) {
   logArea.style.display = 'block';
   const d = document.createElement('div');
-  d.className = type ? 'log-'+type : '';
+  d.className = type ? 'log-' + type : '';
   d.textContent = msg;
   logArea.appendChild(d);
   logArea.scrollTop = logArea.scrollHeight;
@@ -469,36 +470,35 @@ function renderList() {
   files.forEach((entry, i) => {
     const div = document.createElement('div');
     div.className = 'file-item' + (entry.status === 'done' ? ' done' : entry.status === 'error' ? ' error' : '');
-    const icon = entry.status === 'done' ? '✓' : entry.status === 'error' ? '✕' : '○';
-    const statusText = entry.status === 'done' ? '変換済み' : entry.status === 'error' ? 'エラー' : '待機中';
-    div.innerHTML = `
-      <span class="fi-icon">${icon}</span>
-      <span class="fi-name" title="${entry.file.name}">${entry.file.name}</span>
-      <span class="fi-status">${statusText}</span>
-      ${entry.converted ? `<button class="btn-dl" onclick="downloadOne(${i})">↓ DL</button>` : ''}
-      <button class="btn-rm" onclick="removeFile(${i})" aria-label="削除">✕</button>
-    `;
+    const icon = entry.status === 'done' ? '\u2713' : entry.status === 'error' ? '\u2715' : '\u25cb';
+    const statusText = entry.status === 'done' ? '\u5909\u63db\u6e08\u307f' : entry.status === 'error' ? '\u30a8\u30e9\u30fc' : '\u5f85\u6a5f\u4e2d';
+    div.innerHTML =
+      '<span class="fi-icon">' + icon + '</span>' +
+      '<span class="fi-name" title="' + entry.file.name + '">' + entry.file.name + '</span>' +
+      '<span class="fi-status">' + statusText + '</span>' +
+      (entry.converted ? '<button class="btn-dl" onclick="downloadOne(' + i + ')">\u2193 DL</button>' : '') +
+      '<button class="btn-rm" onclick="removeFile(' + i + ')" aria-label="\u524a\u9664">\u2715</button>';
     fileListEl.appendChild(div);
   });
 }
 
 function removeFile(i) { files.splice(i, 1); renderList(); }
 
-document.getElementById('convert-all-btn').addEventListener('click', async () => {
-  for (let i = 0; i < files.length; i++)
+document.getElementById('convert-all-btn').addEventListener('click', async function() {
+  for (var i = 0; i < files.length; i++)
     if (files[i].status !== 'done') await convertFile(i);
 });
-document.getElementById('dl-all-btn').addEventListener('click', () => {
-  files.forEach((_, i) => { if (files[i].converted) downloadOne(i); });
+document.getElementById('dl-all-btn').addEventListener('click', function() {
+  files.forEach(function(_, i) { if (files[i].converted) downloadOne(i); });
 });
-document.getElementById('clear-btn').addEventListener('click', () => {
+document.getElementById('clear-btn').addEventListener('click', function() {
   files = []; renderList(); logArea.style.display = 'none'; logArea.innerHTML = '';
 });
 
 async function convertFile(i) {
-  const entry = files[i];
-  const text = await entry.file.text();
-  const strengths = {
+  var entry = files[i];
+  var text = await entry.file.text();
+  var strengths = {
     tone: getStrength('sl-tone'),
     hl:   getStrength('sl-hl'),
     hsl:  getStrength('sl-hsl'),
@@ -506,214 +506,192 @@ async function convertFile(i) {
     vig:  getStrength('sl-vig'),
   };
   try {
-    const [result, changes] = invertXMP(text, strengths);
-    entry.converted = result; entry.status = 'done';
-    log(`✓ ${entry.file.name} — ${changes.length}件変更`, 'ok');
-    changes.forEach(c => log('  ' + c));
+    var res = invertXMP(text, strengths);
+    entry.converted = res[0]; entry.status = 'done';
+    log('\u2713 ' + entry.file.name + ' \u2014 ' + res[1].length + '\u4ef6\u5909\u66f4', 'ok');
+    res[1].forEach(function(c) { log('  ' + c); });
   } catch(e) {
     entry.status = 'error';
-    log(`✕ ${entry.file.name}: ${e.message}`, 'er');
+    log('\u2715 ' + entry.file.name + ': ' + e.message, 'er');
   }
   renderList();
 }
 
 function downloadOne(i) {
-  const entry = files[i];
-  const stem = entry.file.name.replace(/\.xmp$/i, '');
-  const blob = new Blob([entry.converted], { type: 'application/xml' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = stem + '_inverted.xmp';
+  var entry = files[i];
+  var stem = entry.file.name.replace(/\.xmp$/i, '');
+  var blob = new Blob([entry.converted], { type: 'application/xml' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = stem + '_inverted.xmp';
   a.click(); URL.revokeObjectURL(url);
 }
 
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════
 // XMP Inversion Engine v2
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════
 
 function fmt(v) { return v === Math.round(v) ? String(Math.round(v)) : v.toFixed(2); }
 function lerp(o, inv, t) { return o + (inv - o) * t; }
 
-// ── XML helpers ──
 function getA(c, n) {
-  const m = c.match(new RegExp('(?:crs:)?' + n + '\s*=\s*"([^"]*)"'));
+  var re = new RegExp('(?:crs:)?' + n + '\\s*=\\s*"([^"]*)"');
+  var m = c.match(re);
   return m ? m[1] : null;
 }
 function setA(c, n, v) {
-  return c.replace(new RegExp('((?:crs:)?' + n + '\s*=\s*)"[^"]*"'), `$1"${v}"`);
+  var re = new RegExp('((?:crs:)?' + n + '\\s*=\\s*)"[^"]*"');
+  return c.replace(re, '$1"' + v + '"');
 }
 function getC(c, n) {
-  const m = c.match(new RegExp('<(?:crs:)?' + n + '>(.*?)</(?:crs:)?' + n + '>', 's'));
+  var re = new RegExp('<(?:crs:)?' + n + '>(.*?)<\\/(?:crs:)?' + n + '>', 's');
+  var m = c.match(re);
   if (!m) return null;
-  return [...m[1].matchAll(/<rdf:li>([^<]+)<\/rdf:li>/g)].map(x => x[1]);
+  var out = [];
+  var liRe = /<rdf:li>([^<]+)<\/rdf:li>/g;
+  var mx;
+  while ((mx = liRe.exec(m[1])) !== null) out.push(mx[1]);
+  return out;
 }
 function setC(c, n, pts) {
-  const re = new RegExp('(<(?:crs:)?' + n + '>.*?<rdf:Seq>)(.*?)(</rdf:Seq>.*?</(?:crs:)?' + n + '>)', 's');
-  const blk = '
-     ' + pts.map(p => `<rdf:li>${p}</rdf:li>`).join('
-     ') + '
-    ';
-  return c.replace(re, `$1${blk}$3`);
+  var re = new RegExp('(<(?:crs:)?' + n + '>.*?<rdf:Seq>)(.*?)(<\\/rdf:Seq>.*?<\\/(?:crs:)?' + n + '>)', 's');
+  var blk = '\n     ' + pts.map(function(p) { return '<rdf:li>' + p + '<\/rdf:li>'; }).join('\n     ') + '\n    ';
+  return c.replace(re, '$1' + blk + '$3');
 }
 
 function applySimple(r, name, fn, t, changes) {
-  const v = getA(r, name); if (v === null) return r;
-  const o = parseFloat(v); if (isNaN(o)) return r;
-  const n = lerp(o, fn(o), t);
-  r = setA(r, name, fmt(n));
-  if (Math.abs(o - n) > 0.005) changes.push(`${name}: ${fmt(o)} → ${fmt(n)}`);
+  var v = getA(r, name); if (v === null) return r;
+  var o = parseFloat(v); if (isNaN(o)) return r;
+  var nv = lerp(o, fn(o), t);
+  r = setA(r, name, fmt(nv));
+  if (Math.abs(o - nv) > 0.005) changes.push(name + ': ' + fmt(o) + ' \u2192 ' + fmt(nv));
   return r;
 }
 
-// ── Tone curve: always 100% inversion ──
+// Tone curve: always 100%
 function invertCurvePoints(arr) {
-  const pts = arr.map(s => { const p = s.trim().split(','); return [parseFloat(p[0]), parseFloat(p[1])]; });
-  return pts.map(([x, y]) => [x, 255 - y]).sort((a, b) => a[0] - b[0]).map(([x, y]) => `${fmt(x)}, ${fmt(y)}`);
+  var pts = arr.map(function(s) {
+    var p = s.trim().split(',');
+    return [parseFloat(p[0]), parseFloat(p[1])];
+  });
+  return pts
+    .map(function(pt) { return [pt[0], 255 - pt[1]]; })
+    .sort(function(a, b) { return a[0] - b[0]; })
+    .map(function(pt) { return fmt(pt[0]) + ', ' + fmt(pt[1]); });
 }
 
-// ── HSL complementary color mapping ──
-// In a negative, each color becomes its complement.
-// So HSL adjustments should move to the complementary color channel.
-// Complement pairs: Red↔Aqua, Orange↔Blue, Yellow↔Purple, Green↔Magenta
-const HSL_COMPLEMENT = {
-  Red: 'Aqua', Orange: 'Blue', Yellow: 'Purple',
-  Green: 'Magenta', Aqua: 'Red', Blue: 'Orange',
-  Purple: 'Yellow', Magenta: 'Green'
+// HSL complementary mapping
+var HSL_COMPLEMENT = {
+  Red:'Aqua', Orange:'Blue', Yellow:'Purple', Green:'Magenta',
+  Aqua:'Red', Blue:'Orange', Purple:'Yellow', Magenta:'Green'
 };
-const HSL_COLORS = ['Red','Orange','Yellow','Green','Aqua','Blue','Purple','Magenta'];
-const HSL_TYPES  = ['HueAdjustment','SaturationAdjustment','LuminanceAdjustment'];
+var HSL_COLORS = ['Red','Orange','Yellow','Green','Aqua','Blue','Purple','Magenta'];
+var HSL_TYPES  = ['HueAdjustment','SaturationAdjustment','LuminanceAdjustment'];
 
 function applyHSL(r, t, changes) {
-  // Read all current values first
-  const vals = {};
-  HSL_TYPES.forEach(type => {
-    HSL_COLORS.forEach(color => {
-      const v = getA(r, type + color);
+  var vals = {};
+  HSL_TYPES.forEach(function(type) {
+    HSL_COLORS.forEach(function(color) {
+      var v = getA(r, type + color);
       vals[type + color] = v !== null ? parseFloat(v) : null;
     });
   });
-
-  // Write complementary-mapped values
-  HSL_TYPES.forEach(type => {
-    HSL_COLORS.forEach(color => {
-      const srcKey = type + color;
-      const dstKey = type + HSL_COMPLEMENT[color];
-      const srcVal = vals[srcKey];
-      const dstVal = vals[dstKey];
+  HSL_TYPES.forEach(function(type) {
+    HSL_COLORS.forEach(function(color) {
+      var srcKey = type + color;
+      var dstKey = type + HSL_COMPLEMENT[color];
+      var srcVal = vals[srcKey];
+      var dstVal = vals[dstKey];
       if (srcVal === null || dstVal === null) return;
-      // lerp: at t=0 keep original, at t=1 fully remap to complement
-      const newVal = lerp(dstVal, srcVal, t);
+      var newVal = lerp(dstVal, srcVal, t);
       r = setA(r, dstKey, fmt(newVal));
     });
   });
-
-  // Log summary
-  const changed = HSL_TYPES.flatMap(type =>
-    HSL_COLORS.filter(color => {
-      const src = vals[type + color];
-      const dst = vals[type + HSL_COMPLEMENT[color]];
-      return src !== null && dst !== null && Math.abs(src - dst) > 0.005;
-    })
-  );
-  if (changed.length > 0) changes.push(`HSL補色マッピング: ${changed.length}チャンネル`);
+  var changed = 0;
+  HSL_TYPES.forEach(function(type) {
+    HSL_COLORS.forEach(function(color) {
+      var src = vals[type + color];
+      var dst = vals[type + HSL_COMPLEMENT[color]];
+      if (src !== null && dst !== null && Math.abs(src - dst) > 0.005) changed++;
+    });
+  });
+  if (changed > 0) changes.push('HSL\u88dc\u8272\u30de\u30c3\u30d4\u30f3\u30b0: ' + changed + '\u30c1\u30e3\u30f3\u30cd\u30eb');
   return r;
 }
 
-// ── Color Grade ──
-// Hue: rotate 180° (complementary)
-// Saturation: keep as-is (strength of color grading doesn't change in negative)
-// Luminance: Shadow ↔ Highlight swap + invert
+// Color Grade
 function applyColorGrade(r, t, changes) {
-  // Hue: 180° rotation on midtone and global
-  ['ColorGradeMidtoneHue','ColorGradeGlobalHue',
-   'ColorGradeShadowHue','ColorGradeHighlightHue'].forEach(n => {
-    const v = getA(r, n); if (v === null) return;
-    const o = parseFloat(v); if (isNaN(o)) return;
-    const inv = (o + 180) % 360;
-    const nv = lerp(o, inv, t);
+  ['ColorGradeMidtoneHue','ColorGradeGlobalHue','ColorGradeShadowHue','ColorGradeHighlightHue'].forEach(function(n) {
+    var v = getA(r, n); if (v === null) return;
+    var o = parseFloat(v); if (isNaN(o)) return;
+    var inv = (o + 180) % 360;
+    var nv = lerp(o, inv, t);
     r = setA(r, n, fmt(nv));
-    if (Math.abs(o - nv) > 0.005) changes.push(`${n}: ${fmt(o)} → ${fmt(nv)}`);
+    if (Math.abs(o - nv) > 0.005) changes.push(n + ': ' + fmt(o) + ' \u2192 ' + fmt(nv));
   });
-
-  // Saturation: keep as-is (no change)
-
-  // Luminance: Shadow ↔ Highlight swap + invert
-  const shadowLum   = getA(r, 'ColorGradeShadowLum');
-  const highlightLum= getA(r, 'ColorGradeHighlightLum');
-  const midtoneLum  = getA(r, 'ColorGradeMidtoneLum');
-  const globalLum   = getA(r, 'ColorGradeGlobalLum');
-
+  var shadowLum    = getA(r, 'ColorGradeShadowLum');
+  var highlightLum = getA(r, 'ColorGradeHighlightLum');
   if (shadowLum !== null && highlightLum !== null) {
-    const fs = parseFloat(shadowLum), fh = parseFloat(highlightLum);
-    // swap + invert: new shadow = -highlight, new highlight = -shadow
-    const ns = lerp(fs, -fh, t), nh = lerp(fh, -fs, t);
+    var fs = parseFloat(shadowLum), fh = parseFloat(highlightLum);
+    var ns = lerp(fs, -fh, t), nh = lerp(fh, -fs, t);
     r = setA(r, 'ColorGradeShadowLum', fmt(ns));
     r = setA(r, 'ColorGradeHighlightLum', fmt(nh));
     if (Math.abs(fs-ns)>0.005||Math.abs(fh-nh)>0.005)
-      changes.push(`ColorGradeLum Shadow↔Highlight: (${fmt(fs)},${fmt(fh)})→(${fmt(ns)},${fmt(nh)})`);
+      changes.push('ColorGradeLum Shadow\u2194Highlight: (' + fmt(fs) + ',' + fmt(fh) + ')\u2192(' + fmt(ns) + ',' + fmt(nh) + ')');
   }
-  if (midtoneLum !== null) {
-    const o = parseFloat(midtoneLum);
-    const nv = lerp(o, -o, t);
-    r = setA(r, 'ColorGradeMidtoneLum', fmt(nv));
-    if (Math.abs(o-nv)>0.005) changes.push(`ColorGradeMidtoneLum: ${fmt(o)} → ${fmt(nv)}`);
-  }
-  if (globalLum !== null) {
-    const o = parseFloat(globalLum);
-    const nv = lerp(o, -o, t);
-    r = setA(r, 'ColorGradeGlobalLum', fmt(nv));
-    if (Math.abs(o-nv)>0.005) changes.push(`ColorGradeGlobalLum: ${fmt(o)} → ${fmt(nv)}`);
-  }
-
+  ['ColorGradeMidtoneLum','ColorGradeGlobalLum'].forEach(function(n) {
+    var v = getA(r, n); if (v === null) return;
+    var o = parseFloat(v);
+    var nv = lerp(o, -o, t);
+    r = setA(r, n, fmt(nv));
+    if (Math.abs(o-nv)>0.005) changes.push(n + ': ' + fmt(o) + ' \u2192 ' + fmt(nv));
+  });
   return r;
 }
 
-// ── Parametric curve (Highlights↔Shadows入替+反転, Lights↔Darks入替+反転) ──
+// Parametric curve (always 100%)
 function applyParametricCurve(r, changes) {
-  const pairs = [
-    ['ParametricHighlights','ParametricShadows'],
-    ['ParametricLights','ParametricDarks'],
-  ];
-  pairs.forEach(([a, b]) => {
-    const va = getA(r, a), vb = getA(r, b);
+  [['ParametricHighlights','ParametricShadows'],['ParametricLights','ParametricDarks']].forEach(function(pair) {
+    var a = pair[0], b = pair[1];
+    var va = getA(r, a), vb = getA(r, b);
     if (va === null || vb === null) return;
-    const fa = parseFloat(va), fb = parseFloat(vb);
+    var fa = parseFloat(va), fb = parseFloat(vb);
     if (isNaN(fa) || isNaN(fb)) return;
-    // swap + invert
     r = setA(r, a, fmt(-fb));
     r = setA(r, b, fmt(-fa));
-    if (Math.abs(fa+fb)>0.005||Math.abs(fb+fa)>0.005)
-      changes.push(`${a}↔${b}: (${fmt(fa)},${fmt(fb)})→(${fmt(-fb)},${fmt(-fa)})`);
+    if (Math.abs(fa+fb)>0.005) changes.push(a + '\u2194' + b + ': (' + fmt(fa) + ',' + fmt(fb) + ')\u2192(' + fmt(-fb) + ',' + fmt(-fa) + ')');
   });
   return r;
 }
 
 function invertXMP(content, s) {
-  let r = content;
-  const changes = [];
+  var r = content;
+  var changes = [];
 
-  // 1. Tone: Exposure, Contrast, Dehaze (Clarity は反転しない)
-  ['Exposure2012','Contrast2012','Dehaze'].forEach(n => {
-    r = applySimple(r, n, v => -v, s.tone, changes);
+  // 1. Exposure, Contrast, Dehaze (Clarity は反転しない)
+  ['Exposure2012','Contrast2012','Dehaze'].forEach(function(n) {
+    r = applySimple(r, n, function(v) { return -v; }, s.tone, changes);
   });
 
-  // 2. Highlights ↔ Shadows (swap + invert)
-  [['Highlights2012','Shadows2012'],['Whites2012','Blacks2012']].forEach(([a, b]) => {
-    const va = getA(r, a), vb = getA(r, b);
+  // 2. Highlights <-> Shadows swap + invert
+  [['Highlights2012','Shadows2012'],['Whites2012','Blacks2012']].forEach(function(pair) {
+    var a = pair[0], b = pair[1];
+    var va = getA(r, a), vb = getA(r, b);
     if (va === null || vb === null) return;
-    const fa = parseFloat(va), fb = parseFloat(vb);
+    var fa = parseFloat(va), fb = parseFloat(vb);
     if (isNaN(fa) || isNaN(fb)) return;
-    const na = lerp(fa, -fb, s.hl), nb = lerp(fb, -fa, s.hl);
+    var na = lerp(fa, -fb, s.hl), nb = lerp(fb, -fa, s.hl);
     r = setA(r, a, fmt(na)); r = setA(r, b, fmt(nb));
     if (Math.abs(fa-na)>0.005||Math.abs(fb-nb)>0.005)
-      changes.push(`${a}↔${b}: (${fmt(fa)},${fmt(fb)})→(${fmt(na)},${fmt(nb)})`);
+      changes.push(a + '\u2194' + b + ': (' + fmt(fa) + ',' + fmt(fb) + ')\u2192(' + fmt(na) + ',' + fmt(nb) + ')');
   });
 
-  // 3. Tone curves — ALWAYS 100% (no lerp)
-  ['ToneCurve2012','ToneCurveRed','ToneCurveGreen','ToneCurveBlue'].forEach(n => {
-    const pts = getC(r, n);
+  // 3. Tone curves (always 100%)
+  ['ToneCurve2012','ToneCurveRed','ToneCurveGreen','ToneCurveBlue'].forEach(function(n) {
+    var pts = getC(r, n);
     if (pts && pts.length) {
       r = setC(r, n, invertCurvePoints(pts));
-      changes.push(`${n}: ${pts.length}点を強制反転`);
+      changes.push(n + ': ' + pts.length + '\u70b9\u3092\u5f37\u5236\u53cd\u8ee2');
     }
   });
   r = setA(r, 'ToneCurveName2012', 'Custom');
@@ -721,29 +699,30 @@ function invertXMP(content, s) {
   // 4. Parametric curve (always 100%)
   r = applyParametricCurve(r, changes);
 
-  // 5. HSL — complementary color mapping
+  // 5. HSL complementary mapping
   r = applyHSL(r, s.hsl, changes);
 
   // 6. Vibrance / Saturation
-  r = applySimple(r, 'Vibrance', v => -v, s.sat, changes);
-  r = applySimple(r, 'Saturation', v => -v, s.sat, changes);
+  r = applySimple(r, 'Vibrance',   function(v) { return -v; }, s.sat, changes);
+  r = applySimple(r, 'Saturation', function(v) { return -v; }, s.sat, changes);
 
   // 7. Color Grade
   r = applyColorGrade(r, s.tone, changes);
 
-  // 8. Split Toning Shadow ↔ Highlight swap
+  // 8. Split Toning swap
   [['SplitToningShadowHue','SplitToningHighlightHue'],
-   ['SplitToningShadowSaturation','SplitToningHighlightSaturation']].forEach(([a, b]) => {
-    const va = getA(r, a), vb = getA(r, b);
+   ['SplitToningShadowSaturation','SplitToningHighlightSaturation']].forEach(function(pair) {
+    var a = pair[0], b = pair[1];
+    var va = getA(r, a), vb = getA(r, b);
     if (va === null || vb === null) return;
-    const fa = parseFloat(va), fb = parseFloat(vb);
-    const na = lerp(fa, fb, s.hl), nb = lerp(fb, fa, s.hl);
+    var fa = parseFloat(va), fb = parseFloat(vb);
+    var na = lerp(fa, fb, s.hl), nb = lerp(fb, fa, s.hl);
     r = setA(r, a, fmt(na)); r = setA(r, b, fmt(nb));
-    if (Math.abs(fa-na)>0.005) changes.push(`${a}↔${b}`);
+    if (Math.abs(fa-na)>0.005) changes.push(a + '\u2194' + b);
   });
 
   // 9. Vignette
-  r = applySimple(r, 'VignetteAmount', v => -v, s.vig, changes);
+  r = applySimple(r, 'VignetteAmount', function(v) { return -v; }, s.vig, changes);
 
   return [r, changes];
 }
